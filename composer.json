@@ -1,0 +1,29 @@
+{
+    "name": "cjleto/laravel-sql-profiler",
+    "description": "Profilatore SQL per Laravel: log e statistiche sulle query eseguite.",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Francesco Leto",
+            "email": "letociccio@gmail.com"
+        }
+    ],
+    "require": {
+        "php": "^8.1",
+        "illuminate/support": "^10.0 || ^11.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "LaravelSqlProfiler\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "LaravelSqlProfiler\\SqlProfilerServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "stable"
+}
