@@ -1,22 +1,61 @@
 {
     "name": "cjleto/laravel-sql-profiler",
     "description": "Profilatore SQL per Laravel: log e statistiche sulle query eseguite.",
+    "keywords": [
+        "laravel",
+        "sql",
+        "profiler",
+        "logger",
+        "database",
+        "debug",
+        "performance",
+        "query",
+        "monitoring"
+    ],
+    "homepage": "https://github.com/cjleto/laravel-sql-profiler",
     "type": "library",
     "license": "MIT",
     "authors": [
         {
             "name": "Francesco Leto",
-            "email": "letociccio@gmail.com"
+            "email": "letociccio@gmail.com",
+            "role": "Developer"
         }
     ],
+    "support": {
+        "issues": "https://github.com/cjleto/laravel-sql-profiler/issues",
+        "source": "https://github.com/cjleto/laravel-sql-profiler"
+    },
     "require": {
         "php": "^8.1",
-        "illuminate/support": "^10.0 || ^11.0"
+        "illuminate/support": "^10.0 || ^11.0",
+        "illuminate/database": "^10.0 || ^11.0"
+    },
+    "require-dev": {
+        "mockery/mockery": "^1.6",
+        "orchestra/testbench": "^8.0 || ^9.0",
+        "pestphp/pest": "^2.36",
+        "phpstan/phpstan": "^1.10",
+        "phpunit/phpunit": "^10.0"
     },
     "autoload": {
         "psr-4": {
             "LaravelSqlProfiler\\": "src/"
+        },
+        "files": [
+            "src/helpers.php"
+        ]
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "LaravelSqlProfiler\\Tests\\": "tests/"
         }
+    },
+    "scripts": {
+        "test": "vendor/bin/pest",
+        "test-coverage": "vendor/bin/pest --coverage",
+        "analyse": "vendor/bin/phpstan analyse",
+        "format": "vendor/bin/php-cs-fixer fix"
     },
     "extra": {
         "laravel": {
@@ -25,5 +64,14 @@
             ]
         }
     },
-    "minimum-stability": "stable"
+    "config": {
+        "sort-packages": true,
+        "preferred-install": "dist",
+        "optimize-autoloader": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
 }
