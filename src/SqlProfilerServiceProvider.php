@@ -11,13 +11,14 @@ class SqlProfilerServiceProvider extends ServiceProvider
     public function boot()
     {
         if (config('sqlprofiler.enabled', false)) {
+
             DB::listen(function ($query) {
                 $sql = $query->sql;
                 $bindings = json_encode($query->bindings);
                 $time = $query->time;
 
-                Log::channel(config('sqlprofiler.log_channel', 'stack'))
-                    ->debug("[SQL Profiler] {$sql} | bindings: {$bindings} | time: {$time} ms");
+                Log::channel(config('sqlprofiler.log_channel', 'daily_sql_profiler'))
+                    ->debug("[SQL ProfilerCJ] {$sql} | bindings: {$bindings} | time: {$time} ms");
             });
         }
 
@@ -33,5 +34,12 @@ class SqlProfilerServiceProvider extends ServiceProvider
             __DIR__ . '/../config/sqlprofiler.php',
             'sqlprofiler'
         );
+
+        // Merge manuale nel logging globale
+        $this->app->make('config')->set(
+            'logging.channels.daily_sql_profiler',
+            config('sqlprofiler.logging.channels.daily_sql_profiler')
+        );
+
     }
 }
