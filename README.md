@@ -1,3 +1,24 @@
+## Dashboard SQL Profiler
+
+Per abilitare la dashboard delle query SQL:
+
+1. Assicurati di aver pubblicato le view del pacchetto (opzionale, solo se vuoi personalizzarle):
+
+```bash
+php artisan vendor:publish --provider="LaravelSqlProfiler\\SqlProfilerServiceProvider" --tag=views
+```
+
+2. Accedi alla dashboard su `/sql-dashboard` (protetta da middleware `sqlprofiler.dashboard_access`).
+
+3. Puoi personalizzare il middleware per gestire l’accesso modificando `SqlDashboardAccess` oppure sovrascrivendo la logica nel tuo progetto.
+
+4. Le query più lente e i possibili casi di N+1 saranno evidenziati nella dashboard.
+
+5. Per pubblicare anche la configurazione:
+
+```bash
+php artisan vendor:publish --provider="LaravelSqlProfiler\\SqlProfilerServiceProvider" --tag=config
+```
 # Laravel SQL Profiler
 
 Un package per Laravel che consente di loggare e profilare tutte le query SQL eseguite dall'applicazione. Perfetto per il debugging e l'ottimizzazione delle performance.

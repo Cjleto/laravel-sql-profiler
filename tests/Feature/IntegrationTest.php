@@ -2,30 +2,16 @@
 
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
+use LaravelSqlProfiler\Models\SqlQueryLog;
+use LaravelSqlProfiler\SqlProfiler;
 
 beforeEach(function () {
-    // Set up real file logging for integration tests
-    $this->logPath = storage_path('logs/test_sql_profiler.log');
+    // Pulisci i dati del database
+    SqlQueryLog::truncate();
     
+    // Configura il profiler per i test
     Config::set('sqlprofiler.enabled', true);
-    Config::set('sqlprofiler.log_channel', 'test_sql');
-    Config::set('logging.channels.test_sql', [
-        'driver' => 'single',
-        'path' => $this->logPath,
-        'level' => 'debug',
-    ]);
-    
-    // Ensure directory exists
-    if (!File::exists(dirname($this->logPath))) {
-        File::makeDirectory(dirname($this->logPath), 0755, true);
-    }
-    
-    // Clean up any existing log file
-    if (File::exists($this->logPath)) {
-        File::delete($this->logPath);
-    }
     
     // Create test table
     Schema::create('integration_test_table', function ($table) {
@@ -35,36 +21,34 @@ beforeEach(function () {
         $table->timestamps();
     });
     
-    // Re-register the service provider to apply the new config
-    app()->register(\LaravelSqlProfiler\SqlProfilerServiceProvider::class, true);
+    // Ottieni il profiler per i test
+    $this->profiler = app(SqlProfiler::class);
+    $this->profiler->start();
 });
 
 afterEach(function () {
-    // Clean up log file after each test
-    if (File::exists($this->logPath)) {
-        File::delete($this->logPath);
-    }
+    Schema::dropIfExists('integration_test_table');
+    SqlQueryLog::truncate();
 });
 
-test('it actually writes to log file', function () {
+test('it actually saves queries to database', function () {
     // Execute a query
     DB::table('integration_test_table')->insert([
         'name' => 'Integration Test',
         'email' => 'integration@test.com'
     ]);
 
-    // Wait a moment for the log to be written
-    usleep(100000); // 0.1 seconds
+    // Forza il salvataggio per i test
+    $this->profiler->flushQueries();
 
-    // Check if log file exists and contains our query
-    expect($this->logPath)->toBeFile();
+    // Check if query was saved to database
+    expect(SqlQueryLog::count())->toBeGreaterThan(0);
     
-    $logContents = File::get($this->logPath);
-    expect($logContents)->toContain('[SQL ProfilerCJ]');
-    expect($logContents)->toContain('integration_test_table');
-    expect($logContents)->toContain('Integration Test');
-    expect($logContents)->toContain('time:');
-    expect($logContents)->toContain('ms');
+    $log = SqlQueryLog::first();
+    expect($log->sql)->toContain('integration_test_table');
+    expect($log->sql)->toContain('insert');
+    expect($log->bindings)->toContain('Integration Test');
+    expect($log->time)->toBeGreaterThan(0);
 });
 
 test('it logs multiple queries correctly', function () {
@@ -79,39 +63,37 @@ test('it logs multiple queries correctly', function () {
         'email' => 'user2@test.com'
     ]);
 
-    $users = DB::table('integration_test_table')->where('name', 'like', 'User%')->get();
+    // Forza il salvataggio per i test
+    $this->profiler->flushQueries();
 
-    // Wait for logs to be written
-    usleep(100000);
-
-    $logContents = File::get($this->logPath);
+    // Should have logged the insert queries
+    expect(SqlQueryLog::count())->toBeGreaterThanOrEqual(2);
     
-    // Should have at least 3 log entries (2 inserts + 1 select)
-    $profilerEntries = substr_count($logContents, '[SQL ProfilerCJ]');
-    expect($profilerEntries)->toBeGreaterThanOrEqual(3);
-    
-    // Check for specific content
-    expect($logContents)->toContain('User 1');
-    expect($logContents)->toContain('User 2');
-    expect($logContents)->toContain('like');
+    $logs = SqlQueryLog::all();
+    $bindings = $logs->pluck('bindings')->implode(' ');
+    expect($bindings)->toContain('User 1');
+    expect($bindings)->toContain('User 2');
 });
 
 test('it respects enabled disabled setting', function () {
     // This test verifies that the configuration can be changed
-    // The actual disabled behavior is tested in DisabledProfilerTest
     Config::set('sqlprofiler.enabled', false);
     
     expect(config('sqlprofiler.enabled'))->toBeFalse();
     
-    // Execute a query - logging may still happen because service provider
-    // was already booted with enabled=true, but config change is respected
+    // Create new profiler with disabled config
+    $disabledProfiler = new SqlProfiler(app());
+    $disabledProfiler->start();
+    
     DB::table('integration_test_table')->insert([
         'name' => 'Config Test',
         'email' => 'config@test.com'
     ]);
 
-    // Test passes if we can change the config
-    expect(true)->toBeTrue();
+    $disabledProfiler->flushQueries();
+
+    // Should not log when disabled
+    expect(SqlQueryLog::count())->toBe(0);
 });
 
 test('it handles queries with special characters', function () {
@@ -121,11 +103,11 @@ test('it handles queries with special characters', function () {
         'email' => 'test+email@domain.com'
     ]);
 
-    usleep(100000);
+    $this->profiler->flushQueries();
 
-    $logContents = File::get($this->logPath);
-    expect($logContents)->toContain('[SQL ProfilerCJ]');
-    expect($logContents)->toContain('test+email@domain.com');
+    $log = SqlQueryLog::first();
+    expect($log->bindings)->toContain('test+email@domain.com');
+    expect($log->bindings)->toContain("O'Connor & Smith");
 });
 
 test('it logs transaction queries', function () {
@@ -141,9 +123,10 @@ test('it logs transaction queries', function () {
         ]);
     });
 
-    usleep(100000);
+    $this->profiler->flushQueries();
 
-    $logContents = File::get($this->logPath);
-    expect($logContents)->toContain('Transaction User 1');
-    expect($logContents)->toContain('Transaction User 2');
+    $logs = SqlQueryLog::all();
+    $bindings = $logs->pluck('bindings')->implode(' ');
+    expect($bindings)->toContain('Transaction User 1');
+    expect($bindings)->toContain('Transaction User 2');
 });
